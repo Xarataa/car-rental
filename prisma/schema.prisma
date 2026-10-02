@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int           @id @default(autoincrement())
+  name            String
+  email           String        @unique
+  passwordHash    String
+  emailVerified   Boolean       @default(false)
+  emailCode       String?
+  emailCodeExpiry DateTime?
+  createdAt       DateTime      @default(now())
+  verification    Verification?
+  bookings        Booking[]
+}
+
+enum VerificationStatus {
+  NONE
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model Verification {
+  id         Int                @id @default(autoincrement())
+  userId     Int                @unique
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     VerificationStatus @default(PENDING)
+  idFrontUrl String
+  selfieUrl  String
+  faceScore  Float?
+  faceMatch  Boolean            @default(false)
+  reason     String?
+  provider   String             @default("local")
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+}
+
+model Car {
+  id              Int       @id @default(autoincrement())
+  name            String
+  brand           String    @default("")
+  carType         String    @default("")
+  city            String
+  pricePerDay     Float
+  seats           Int       @default(4)
+  imageUrl        String    @default("")
+  description     String    @default("")
+  available       Boolean   @default(true)
+  // Exact pickup place + owner phone. Shown ONLY after payment.
+  pickupLocation  String    @default("")
+  ownerPhone      String    @default("")
+  // Part the customer pays online now. Rest goes to owner in person.
+  // Owner sets this number per car: 10 or 20.
+  prepayPercent   Int       @default(10)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  bookings        Booking[]
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+}
+
+model Booking {
+  id               Int           @id @default(autoincrement())
+  userId           Int
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  carId            Int
+  car              Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+  startDate        DateTime
+  endDate          DateTime
+  totalPrice       Float
+  status           BookingStatus @default(CONFIRMED)
+  // Contract step: customer signs damage repair promise.
+  contractSigned   Boolean       @default(false)
+  contractName     String        @default("")
+  contractSignedAt DateTime?
+  // Payment step: only prepay part online (demo now, real provider later).
+  // Rest of the money goes to the owner in person.
+  paymentStatus    PaymentStatus @default(UNPAID)
+  prepayPercent    Int           @default(10)
+  prepayAmount     Float         @default(0)
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+}
